@@ -1,4 +1,4 @@
-name: Build PlotSquared v7 Fork
+name: Build PlotSquared v7
 
 on:
   push:
@@ -23,7 +23,20 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # [最终修复] 在编译前，从配置文件中删除所有指向 maven.enginehub.org 的行
+      # 关键步骤 1: 全局注入备用仓库
+      - name: Configure Gradle with Mirrors
+        run: |
+          mkdir -p ~/.gradle
+          echo "allprojects {
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/public' }
+                  maven { url 'https://repo.papermc.io/repository/maven-public/' }
+                  mavenCentral()
+                  google()
+              }
+          }" > ~/.gradle/init.gradle
+          
+      # 关键步骤 2: 从项目配置中移除故障仓库
       - name: Remove problematic EngineHub repository from config
         run: sed -i "/maven.enginehub.org/d" settings.gradle.kts
           
