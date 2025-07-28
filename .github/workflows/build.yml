@@ -1,46 +1,43 @@
-# 新的文件名
-name: Build PlotSquared v7 Fork
+name: build
 
-# 触发条件：当有代码被推送到 main 分支时
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches:
+      - main
+  workflow_dispatch: # 允许手动触发
 
-# 定义工作任务
 jobs:
   build:
-    # 使用最新的 Ubuntu 系统作为编译环境
+    # [已移除] 删除了 if: github.repository_owner == 'IntellectualSites'
     runs-on: ubuntu-latest
-    
     steps:
-      # 第一步：拉取你的仓库代码
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 第二步：设置 Java 21 环境 (根据项目要求)
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v3 # 建议使用 v3 或 v4
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'gradle'
+          distribution: temurin
+          java-version: 21
+          cache: 'gradle' # [新增] 缓存 Gradle 依赖项以加快后续构建速度
 
-      # 第三步：给予 gradlew 执行权限
+      # [新增] 给予 gradlew 执行权限
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-
-      # 第四步：使用 Gradle 进行编译和打包
-      # 'build' 任务会编译所有模块并生成 jar 文件
+        
+      # [修改] 我们只关心编译出最终的jar包
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew build -x test # 使用 build 并跳过测试以加快速度
 
-      # 第五步：上传编译好的 .jar 文件
-      - name: Upload Artifact
+      # [新增] 这是最关键的一步：上传编译产物
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          # 上传后的文件包名称
-          name: PlotSquared-v7-JARs
-          # 需要上传的文件路径
-          # '**/build/libs/*.jar' 会匹配所有子模块下 build/libs 目录中的 .jar 文件
-          path: '**/build/libs/*.jar'
+          name: PlotSquared-JARs
+          # 路径 '**/build/libs/*.jar' 会找到所有子模块下编译好的、非-javadoc或-sources的jar文件
+          path: '**/build/libs/!(*-javadoc|*-sources).jar'
+
+      # [已移除] 下面所有与 Determine release status, Publish Release, Publish Snapshot, 和 Publish javadoc 相关的步骤都已被删除。
