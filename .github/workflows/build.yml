@@ -1,67 +1,46 @@
-name: build
+# 新的文件名
+name: Build PlotSquared v7 Fork
+
+# 触发条件：当有代码被推送到 main 分支时
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# 定义工作任务
 jobs:
   build:
-    if: github.repository_owner == 'IntellectualSites'
+    # 使用最新的 Ubuntu 系统作为编译环境
     runs-on: ubuntu-latest
+    
     steps:
+      # 第一步：拉取你的仓库代码
       - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@v4
+
+      # 第二步：设置 Java 21 环境 (根据项目要求)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 21
-      - name: Clean Build
-        run: ./gradlew clean build
-      - name: Determine release status
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          if [ "$(./gradlew properties | awk '/^version:/ { print $2; }' | grep '\-SNAPSHOT')" ]; then
-            echo "STATUS=snapshot" >> $GITHUB_ENV
-          else
-            echo "STATUS=release" >> $GITHUB_ENV
-          fi
-      - name: Publish Release
-        if: ${{ runner.os == 'Linux' && env.STATUS == 'release' && github.event_name == 'push' && github.ref == 'refs/heads/main'}}
-        run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SIGNING_KEY }}
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
-      - name: Publish Snapshot
-        if: ${{ runner.os == 'Linux' && env.STATUS != 'release' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        run: ./gradlew publishAllPublicationsToMavenCentralRepository
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PASSWORD }}
-      - name: Publish core javadoc
-        if: ${{ runner.os == 'Linux' && env.STATUS == 'release' && github.event_name == 'push' && github.ref == 'refs/heads/main'}}
-        uses: cpina/github-action-push-to-another-repository@main
-        env:
-          SSH_DEPLOY_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      # 第三步：给予 gradlew 执行权限
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 第四步：使用 Gradle 进行编译和打包
+      # 'build' 任务会编译所有模块并生成 jar 文件
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      # 第五步：上传编译好的 .jar 文件
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          source-directory: 'Core/build/docs/javadoc'
-          destination-github-username: 'IntellectualSites'
-          destination-repository-name: 'plotsquared-javadocs'
-          user-email: ${{ secrets.USER_EMAIL }}
-          target-branch: main
-          target-directory: v7/core
-      - name: Publish bukkit javadoc
-        if: ${{ runner.os == 'Linux' && env.STATUS == 'release' && github.event_name == 'push' && github.ref == 'refs/heads/main'}}
-        uses: cpina/github-action-push-to-another-repository@main
-        env:
-          SSH_DEPLOY_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
-        with:
-          source-directory: 'Bukkit/build/docs/javadoc'
-          destination-github-username: 'IntellectualSites'
-          destination-repository-name: 'plotsquared-javadocs'
-          user-email: ${{ secrets.USER_EMAIL }}
-          target-branch: main
-          target-directory: v7/bukkit
+          # 上传后的文件包名称
+          name: PlotSquared-v7-JARs
+          # 需要上传的文件路径
+          # '**/build/libs/*.jar' 会匹配所有子模块下 build/libs 目录中的 .jar 文件
+          path: '**/build/libs/*.jar'
