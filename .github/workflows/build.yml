@@ -1,43 +1,54 @@
-name: build
+name: Build PlotSquared v7 Fork
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch: # 允许手动触发
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
-    # [已移除] 删除了 if: github.repository_owner == 'IntellectualSites'
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@v3 # 建议使用 v3 或 v4
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 21
-          cache: 'gradle' # [新增] 缓存 Gradle 依赖项以加快后续构建速度
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
 
-      # [新增] 给予 gradlew 执行权限
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-        
-      # [修改] 我们只关心编译出最终的jar包
-      - name: Build with Gradle
-        run: ./gradlew build -x test # 使用 build 并跳过测试以加快速度
 
-      # [新增] 这是最关键的一步：上传编译产物
-      - name: Upload Artifacts
+      # [新增] 注入阿里云镜像仓库配置
+      - name: Configure Gradle with Aliyun Mirror
+        run: |
+          mkdir -p ~/.gradle
+          echo "initscript {
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/public' }
+                  maven { url 'https://maven.aliyun.com/repository/google' }
+                  maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+              }
+          }
+          allprojects {
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/public' }
+                  maven { url 'https://maven.aliyun.com/repository/google' }
+                  maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+                  mavenCentral()
+                  google()
+              }
+          }" > ~/.gradle/init.gradle
+          
+      - name: Build with Gradle
+        run: ./gradlew build -x test
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PlotSquared-JARs
-          # 路径 '**/build/libs/*.jar' 会找到所有子模块下编译好的、非-javadoc或-sources的jar文件
+          name: PlotSquared-v7-JARs
           path: '**/build/libs/!(*-javadoc|*-sources).jar'
-
-      # [已移除] 下面所有与 Determine release status, Publish Release, Publish Snapshot, 和 Publish javadoc 相关的步骤都已被删除。
